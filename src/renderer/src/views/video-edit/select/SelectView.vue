@@ -2,13 +2,39 @@
   <div class="select">
     <div class="select-header">{{ $t('common.selectView.selectHeaderText') }}</div>
     <div class="select-body">
+      <!-- 分组筛选下拉框 -->
+      <div class="group-filter-box">
+        <t-select
+          v-model="state.groupId"
+          class="group-select"
+          :placeholder="'全部分组'"
+          @change="action.onGroupChange"
+        >
+          <t-option value="all" :label="`全部分组 (${state.totalCount})`" />
+          <t-option value="ungrouped" :label="`未分组 (${state.ungroupedCount})`" />
+          <t-option
+            v-for="group in state.groupList"
+            :key="group.id"
+            :value="group.id"
+            :label="`${group.name} (${group.model_count || 0})`"
+          />
+        </t-select>
+      </div>
+
       <!-- 搜索框 -->
-      <t-input class="model-search" v-model="state.search" :placeholder="$t('common.input.searchAvatarNamePlaceholder')"
-        @change="action.searchList">
+      <t-input
+        class="model-search"
+        v-model="state.search"
+        :placeholder="$t('common.input.searchAvatarNamePlaceholder')"
+        clearable
+        @change="action.searchList"
+        @clear="action.searchList"
+      >
         <template #prefix-icon>
           <SearchIcon />
         </template>
       </t-input>
+
       <div class="model-scroll noscrollbar">
         <!-- 创建模特 -->
         <div class="model-create">
@@ -19,37 +45,69 @@
         </div>
         <!-- 模特列表 -->
         <div class="model-list">
-          <div class="model-list__item" v-for="model in data.modelList" :model-id="model.id" :key="model.id"
-            @click="action.selectModel(model)" :class="{ '--active': data.model?.id === model.id }">
-            <video class="video" :src=localUrl.addFileProtocol(model.video_path) />
-            <div class="name" :title="model.name">{{ model.name }}</div>
+          <div
+            v-for="model in data.modelList"
+            :key="model.id"
+            class="model-list__item"
+            :model-id="model.id"
+            :class="{ '--active': data.model?.id === model.id }"
+            @click="action.selectModel(model)"
+          >
+            <video class="video" :src="localUrl.addFileProtocol(model.video_path)" />
+            <div class="item-info">
+              <div class="name" :title="model.name">{{ model.name }}</div>
+              <div v-if="model.group_name" class="group-tag-dark" :title="model.group_name">
+                {{ model.group_name }}
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </div>
   </div>
 </template>
+
 <script setup>
-import { reactive } from 'vue'
+import { reactive, onMounted } from 'vue'
 import ModelPng from '@renderer/assets/images/video-edit/create-model.png'
 import { SearchIcon } from 'tdesign-icons-vue-next'
 import { createModel } from '@renderer/components/model-create'
+import { listModelGroups } from '@renderer/api/index.js'
 import { useRouter } from 'vue-router'
 import { localUrl } from '@renderer/utils'
 
 const router = useRouter()
-
 const data = defineModel({})
 
 const state = reactive({
-  search: ''
+  search: '',
+  groupId: 'all',
+  groupList: [],
+  ungroupedCount: 0,
+  totalCount: 0
 })
 
 const emits = defineEmits(['query'])
 
 const action = {
+  async loadGroups() {
+    try {
+      const res = await listModelGroups()
+      if (res) {
+        state.groupList = res.groups || []
+        state.ungroupedCount = res.ungroupedCount || 0
+        state.totalCount = res.totalCount || 0
+      }
+    } catch (e) {
+      console.error('加载分组失败:', e)
+    }
+  },
+  onGroupChange(val) {
+    localStorage.setItem('heygem_last_model_group', val)
+    action.searchList()
+  },
   async searchList() {
-    emits('query', state.search)
+    emits('query', { name: state.search, groupId: state.groupId })
   },
   selectModel(model) {
     data.value.model = model
@@ -59,11 +117,29 @@ const action = {
     if (isSubmitOK_toSee) {
       router.push('/home?type=model')
     } else if (isSubmitOK) {
+      await action.loadGroups()
       await action.searchList()
     }
   }
 }
+
+onMounted(async () => {
+  await action.loadGroups()
+  const savedGroup = localStorage.getItem('heygem_last_model_group')
+  if (savedGroup) {
+    // 检查是否在有效分组中或者为 all/ungrouped
+    const valid =
+      savedGroup === 'all' ||
+      savedGroup === 'ungrouped' ||
+      state.groupList.some((g) => String(g.id) === String(savedGroup))
+    if (valid) {
+      state.groupId = savedGroup === 'all' || savedGroup === 'ungrouped' ? savedGroup : Number(savedGroup)
+    }
+  }
+  action.searchList()
+})
 </script>
+
 <style lang="less" scoped>
 .select {
   display: flex;
@@ -88,16 +164,49 @@ const action = {
     overflow: hidden;
   }
 
-  .model {
-    &-search {
-      flex: none;
-      margin-bottom: 21px;
+  .group-filter-box {
+    flex: none;
+    margin-bottom: 12px;
+
+    .group-select {
+      width: 100%;
       --td-bg-color-specialcomponent: #1d1e20;
       --td-text-color-primary: #ffffff;
       --td-text-color-placeholder: rgba(255, 255, 255, 0.6);
 
       :deep(.t-input) {
-        border-color: rgba(255, 255, 255, 0.6);
+        background-color: #1d1e20;
+        border-color: rgba(255, 255, 255, 0.3);
+        color: #ffffff;
+        border-radius: 4px;
+      }
+
+      :deep(.t-input:hover) {
+        border-color: var(--td-brand-color);
+      }
+
+      :deep(.t-select__single) {
+        color: #ffffff;
+      }
+
+      :deep(.t-fake-arrow) {
+        color: rgba(255, 255, 255, 0.6);
+      }
+    }
+  }
+
+  .model {
+    &-search {
+      flex: none;
+      margin-bottom: 16px;
+      --td-bg-color-specialcomponent: #1d1e20;
+      --td-text-color-primary: #ffffff;
+      --td-text-color-placeholder: rgba(255, 255, 255, 0.6);
+
+      :deep(.t-input) {
+        background-color: #1d1e20;
+        border-color: rgba(255, 255, 255, 0.3);
+        border-radius: 4px;
       }
 
       :deep(.t-input--focused) {
@@ -143,13 +252,15 @@ const action = {
       background: #17181a;
       border-radius: 4px 4px 4px 4px;
       border: 1px solid #27292d;
-      margin-top: 21px;
+      margin-top: 16px;
       padding: 12px;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 12px;
+      gap: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
 
       &.--active {
         border: 1px solid var(--td-brand-color);
@@ -159,23 +270,40 @@ const action = {
         margin-bottom: 21px;
       }
 
-      .name {
+      .item-info {
         width: 90%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+      }
+
+      .name {
+        width: 100%;
         font-size: 14px;
         color: #ffffff;
-        line-height: 22px;
+        line-height: 20px;
         text-align: center;
         white-space: nowrap;
-        /* 保持文本在一行显示 */
         overflow: hidden;
-        /* 超出部分隐藏 */
         text-overflow: ellipsis;
-        /* 超出部分显示省略号 */
+      }
+
+      .group-tag-dark {
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.65);
+        background: rgba(255, 255, 255, 0.12);
+        padding: 1px 8px;
+        border-radius: 10px;
+        max-width: 85%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
 
       .video {
         max-width: 100%;
-        max-height: 80%;
+        max-height: 75%;
         border-radius: 4px;
       }
     }

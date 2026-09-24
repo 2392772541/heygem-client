@@ -6,7 +6,7 @@ services:
   duix-avatar-tts:
     image: guiji2025/fish-speech-ziming
     container_name: duix-avatar-tts
-    restart: always
+    restart: "no"
     runtime: nvidia
     environment:
       - NVIDIA_VISIBLE_DEVICES=0
@@ -21,12 +21,10 @@ services:
   duix-avatar-asr:
     image: guiji2025/fun-asr
     container_name: duix-avatar-asr
-    restart: always
+    restart: "no"
     runtime: nvidia
     privileged: true
     working_dir: /workspace/FunASR/runtime
-    ports:
-      - '10095:10095'
     command: sh /run.sh
     deploy:
       resources:
@@ -40,7 +38,7 @@ services:
   duix-avatar-gen-video:
     image: guiji2025/duix.avatar
     container_name: duix-avatar-gen-video
-    restart: always
+    restart: "no"
     runtime: nvidia
     privileged: true
     volumes:

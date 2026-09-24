@@ -65,5 +65,18 @@ export default [
         script: `alter table video
                     add voice_id integer;
                 `
+    },
+    {
+        version: 4,
+        script: `create table if not exists model_group
+                (
+                    id         INTEGER primary key autoincrement,
+                    name       TEXT not null unique collate nocase,
+                    sort_order INTEGER default 0,
+                    created_at INTEGER not null
+                );
+                alter table f2f_model add column group_id integer;
+                create index if not exists idx_f2f_model_group_id on f2f_model(group_id);
+                `
     }
 ]

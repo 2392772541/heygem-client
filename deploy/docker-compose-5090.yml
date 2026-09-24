@@ -6,7 +6,7 @@ services:
   duix-avatar-tts:
     image: guiji2025/fish-speech-5090
     container_name: duix-avatar-tts
-    restart: always
+    restart: "no"
     runtime: nvidia
     working_dir: /code
     environment:
@@ -22,7 +22,7 @@ services:
   duix-avatar-gen-video:
     image: guiji2025/duix.avatar-5090
     container_name: duix-avatar-gen-video
-    restart: always
+    restart: "no"
     runtime: nvidia
     privileged: true
     volumes:

@@ -115,10 +115,19 @@ const action = {
       }
     )
   },
-  async queryModelList(name = '') {
+  async queryModelList(queryParam = '') {
     try {
+      let name = ''
+      let groupId = undefined
+      if (typeof queryParam === 'string') {
+        name = queryParam
+      } else if (typeof queryParam === 'object' && queryParam !== null) {
+        name = queryParam.name || ''
+        groupId = queryParam.groupId
+      }
       const result = await modelPage({
         name,
+        groupId,
         page: 1,
         pageSize: 100
       })

@@ -6,7 +6,7 @@ services:
   duix-avatar-gen-video:
     image: guiji2025/duix.avatar
     container_name: duix-avatar-gen-video
-    restart: always
+    restart: "no"
     runtime: nvidia
     privileged: true
     volumes:
